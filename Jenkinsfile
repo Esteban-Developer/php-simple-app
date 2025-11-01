@@ -13,6 +13,36 @@ pipeline {
             }
         }
 
+        stage('Detect Changes') {
+            steps {
+                script {
+                    // Obtiene el último commit del repo local
+                    def currentCommit = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+
+                    // Archivo donde se guarda el último commit desplegado
+                    def commitFile = "${env.WORKSPACE}/.last_commit"
+
+                    if (fileExists(commitFile)) {
+                        def lastCommit = readFile(commitFile).trim()
+                        if (currentCommit == lastCommit) {
+                            echo "No hay cambios nuevos desde el último despliegue (${lastCommit})."
+                            currentBuild.result = 'SUCCESS'
+                            currentBuild.displayName = "Sin cambios"
+                            // Detiene el pipeline aquí
+                            error("No hay cambios nuevos — omitiendo despliegue.")
+                        } else {
+                            echo "Cambios detectados. Último commit anterior: ${lastCommit}"
+                        }
+                    } else {
+                        echo "Primer despliegue: no existe registro previo de commit."
+                    }
+
+                    // Guarda el commit actual para la próxima ejecución
+                    writeFile file: commitFile, text: currentCommit
+                }
+            }
+        }
+
         stage('Generate Tag') {
             steps {
                 script {
